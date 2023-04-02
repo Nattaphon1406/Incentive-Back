@@ -1,0 +1,1357 @@
+const express = require('express');
+const authenticateToken = require('../middleware/authenticateToken');
+const Responsedata = require('../middleware/response');
+const { v4: uuidv4 } = require('uuid');
+// const ormPg = require('../lib/ormPg');
+const databaseContextPg = require('database-context-pg');
+const systemService = require('../lib/api/system');
+const vehicleService = require('../lib/api/vehicle');
+const { isArray, isNumber, isPlainObject } = require('lodash');
+const moment = require('moment');
+
+const router = express.Router();
+
+const connectionSetting = require("../dbconnect");
+const padZero = require('../lib/padZero');
+const permissionService = require('../lib/api/permission');
+const connectionConfig = connectionSetting.config;
+const condb = new databaseContextPg(connectionConfig)
+
+/**
+* Filter Spare Part
+* @param {import("express").Request} req 
+* @param {import("express").Response} res 
+* @param {import("express").NextFunction} next 
+*/
+const FilterSparePart = async (req, res, next) => {
+    const response = new Responsedata(req, res);
+    try {
+        // const orm = new ormPg();
+        const { company_id } = req.body;
+
+        const _where = {
+            where: [{ key: "spare_is_use", value: true }]
+        }
+
+        if (company_id != "" && company_id) {
+            _where.where.push({ key: "spare_company_id", value: company_id });
+        }
+
+        const callback = await condb.findAll("spare", _where)
+
+
+        const data = {
+            spare_list: []
+        }
+
+        for (const key in callback) {
+            if (Object.hasOwnProperty.call(callback, key)) {
+                const item = callback[key];
+                const _data = {
+                    spare_id: item.spare_id,
+                    spare_no: item.spare_no,
+                    spare_name: item.spare_name,
+                    spare_barcode: item.spare_barcode,
+                    spare_supplier_id: item.spare_supplier_id,
+                    spare_type_id: item.spare_type_id,
+                    spare_detail: item.spare_detail,
+                    spare_min_stock: item.spare_min_stock,
+                    spare_unit: item.spare_unit,
+                    spare_sell_price: item.spare_sell_price,
+                    spare_company_id: item.spare_company_id,
+                    spare_created_date: item.spare_created_date,
+                    spare_created_by: item.spare_created_by,
+                    spare_updated_date: item.spare_updated_date,
+                    spare_updated_by: item.spare_updated_by,
+                    spare_model_name: item.spare_model_name,
+                    spare_model_year: item.spare_model_year,
+                    spare_pictrue_name: item.spare_pictrue_name,
+                    spare_pictrue_path: item.spare_pictrue_path,
+                    spare_amount: item.spare_amount,
+                }
+
+                data.spare_list.push(_data)
+            }
+        }
+
+
+
+        return response.success(data);
+    } catch (error) {
+        return response.error([{
+            errorcode: 400,
+            errorDis: error.message
+        }])
+    }
+}
+router.post('/filtersparepart', [authenticateToken], FilterSparePart);
+
+/**
+* Add Spare Part
+* @param {import("express").Request} req 
+* @param {import("express").Response} res 
+* @param {import("express").NextFunction} next 
+*/
+const AddSparePart = async (req, res, next) => {
+    const response = new Responsedata(req, res);
+    const error_list = [];
+    try {
+        // const orm = new ormPg();
+        const user_token = response.getPayloadData()
+        const body = req.body;
+
+        if (body.sparepart_no == "" || !body.sparepart_no) {
+            error_list.push({
+                errorcode: 400,
+                errorDis: "Not found spare_no"
+            })
+        }
+        if (body.sparepart_name == "" || !body.sparepart_name) {
+            error_list.push({
+                errorcode: 400,
+                errorDis: "Not found spare_name"
+            })
+        }
+
+        if (error_list.length > 0) {
+            return response.error(error_list)
+        }
+
+        const findData = await condb.findOne("spare", {
+            where: [
+                { key: "spare_no", value: body.sparepart_no },
+                { key: "spare_name", value: body.sparepart_name },
+                { key: "spare_is_use", value: true },
+            ]
+        });
+
+        if (findData) {
+            return response.error([{
+                errorcode: 400,
+                errorDis: "SparePart No will be the unique."
+            }])
+        }
+
+        const id = uuidv4()
+
+        const model = {
+            "spare_id": id,
+            "spare_no": body.sparepart_no,
+            "spare_name": body.sparepart_name,
+            "spare_type_id": body.sparepart_type_id,
+            "spare_barcode": body.sparepart_bar_code,
+            "spare_supplier_id": body.sparepart_supplier_id,
+            "spare_detail": body.sparepart_detail,
+            "spare_min_stock": body.sparepart_min_stock,
+            "spare_unit": body.sparepart_unit,
+            "spare_sell_price": body.sparepart_sell_price,
+            "spare_model_name": body.sparepart_model_name,
+            "spare_model_year": body.sparepart_model_year,
+
+            "spare_pictrue_name": body.sparepart_img_name,
+            "spare_pictrue_path": body.sparepart_img_part,
+
+            "spare_amount": body.spare_amount,
+
+            "spare_created_date": new Date(),
+            "spare_created_by": user_token.fup,
+
+            "spare_updated_date": new Date(),
+            "spare_updated_by": user_token.fup,
+
+            "spare_company_id": user_token.com,
+
+            "spare_is_use": true,
+            "spare_is_active": true
+        }
+
+        const callback = await condb.insert("spare", model);
+
+        return response.success({ spare_id: id });
+    } catch (error) {
+        return response.error([{
+            errorcode: 400,
+            errorDis: error.message
+        }])
+    }
+}
+router.post('/addsparepart', [authenticateToken], AddSparePart);
+
+
+/**
+* Get Spare Part
+* @param {import("express").Request} req 
+* @param {import("express").Response} res 
+* @param {import("express").NextFunction} next 
+*/
+const GetSparePart = async (req, res, next) => {
+    const response = new Responsedata(req, res);
+    try {
+        // const orm = new ormPg();
+        const api_system = new systemService();
+        const authHeader = req.headers.authorization;
+        const token = authHeader && authHeader.split(" ")[1];
+
+        const { sparepart_id } = req.params;
+
+        const callback = await condb.findAll("spare", {
+            where: [
+                { key: "spare_is_use", value: true },
+                { key: "spare_id", value: sparepart_id }
+            ]
+        });
+
+        const data = {
+            sparepart_list: [],
+        }
+
+        for (const key in callback) {
+            if (Object.hasOwnProperty.call(callback, key)) {
+                const item = callback[key];
+
+                const PromiseList = [
+                    api_system.GetMasterByid(token, "spare-supplier", item.spare_supplier_id),
+                    api_system.GetMasterByid(token, "spare-type", item.spare_type_id),
+                ];
+
+                const [
+                    Supplier,
+                    Type,
+                ] = await Promise.all(PromiseList)
+
+                const _data = {
+                    sparepart_id: item.spare_id,
+                    sparepart_no: item.spare_no,
+                    sparepart_name: item.spare_name,
+                    spare_barcode: item.spare_barcode,
+                    spare_supplier: item.spare_supplier_id ? {
+                        spare_supplier_id: item.spare_supplier_id,
+                        spare_supplier_name: Supplier?.ss_name,
+                    } : null,
+                    sparepart_type: item.spare_type_id ? {
+                        sparepart_type_id: item.spare_type_id,
+                        sparepart_type_name: Type?.st_name
+                    } : null,
+                    spare_detail: item.spare_detail,
+                    spare_min_stock: item.spare_min_stock,
+                    spare_unit: item.spare_unit,
+                    spare_sell_price: item.spare_sell_price,
+                    spare_model: item.spare_model_name || item.spare_model_year ? {
+                        spare_model_name: item.spare_model_name,
+                        spare_model_year: item.spare_model_year,
+                    } : null,
+                    spare_pictrue: item.spare_pictrue_name || item.spare_pictrue_path ? {
+                        spare_pictrue_name: item.spare_pictrue_name,
+                        spare_pictrue_path: item.spare_pictrue_path,
+                    } : null,
+                    spare_amount: item.spare_amount,
+                }
+                data.sparepart_list.push(_data)
+            }
+        }
+
+        return response.success({ ...data });
+    } catch (error) {
+        return response.error([{
+            errorcode: 400,
+            errorDis: error.message
+        }])
+    }
+}
+router.get('/getsparepart/:sparepart_id', [authenticateToken], GetSparePart);
+
+/**
+* Edit Spare Part
+* @param {import("express").Request} req 
+* @param {import("express").Response} res 
+* @param {import("express").NextFunction} next 
+*/
+const EditSparePart = async (req, res, next) => {
+    const response = new Responsedata(req, res);
+    const error_list = [];
+    try {
+        // const orm = new ormPg();
+        const user_token = response.getPayloadData()
+        const body = req.body;
+
+        if (body.sparepart_id == "" || !body.sparepart_id) {
+            error_list.push({
+                errorcode: 400,
+                errorDis: "Not found sparepart_id"
+            })
+        }
+        if (body.sparepart_name == "") {
+            error_list.push({
+                errorcode: 400,
+                errorDis: "Not found spare_name"
+            })
+        }
+        if (body.sparepart_no == "") {
+            error_list.push({
+                errorcode: 400,
+                errorDis: "Not found sparepart_no"
+            })
+        }
+
+        if (error_list.length > 0) {
+            return response.error(error_list)
+        }
+
+        const findData = await condb.findOne("spare", {
+            where: [
+                { key: "spare_no", value: body.sparepart_no },
+                { key: "spare_name", value: body.sparepart_name },
+                { key: "spare_is_use", value: true },
+                { key: "spare_id", operators: "!=", value: body.sparepart_id }
+            ]
+        });
+
+        if (findData) {
+            return response.error([{
+                errorcode: 400,
+                errorDis: "SparePart No will be the unique."
+            }])
+        }
+
+        const model = {
+            spare_no: body.sparepart_no,
+            spare_name: body.sparepart_name,
+            spare_type_id: body.sparepart_type_id,
+            spare_barcode: body.sparepart_bar_code,
+            spare_supplier_id: body.sparepart_supplier_id,
+            spare_detail: body.sparepart_detail,
+            spare_min_stock: body.sparepart_min_stock,
+            spare_unit: body.sparepart_unit,
+            spare_sell_price: body.sparepart_sell_price,
+            spare_model_name: body.sparepart_model_name,
+            spare_model_year: body.sparepart_model_year,
+            spare_pictrue_name: body.sparepart_img_name,
+            spare_pictrue_path: body.sparepart_img_part,
+            spare_amount: body.spare_amount,
+
+            spare_updated_date: new Date(),
+            spare_updated_by: user_token.fup,
+        }
+
+        const callback = await condb.update("spare", model, body.sparepart_id)
+
+
+        return response.success({ sparepart_id: body.sparepart_id });
+    } catch (error) {
+        return response.error([{
+            errorcode: 400,
+            errorDis: error.message
+        }])
+    }
+}
+router.post('/editsparepart', [authenticateToken], EditSparePart);
+
+/**
+* Delete Spare Part
+* @param {import("express").Request} req 
+* @param {import("express").Response} res 
+* @param {import("express").NextFunction} next 
+*/
+const DeleteSparePart = async (req, res, next) => {
+    const response = new Responsedata(req, res);
+    try {
+        // const orm = new ormPg();
+        const user_token = response.getPayloadData()
+        const { spare_id } = req.params;
+
+
+        const findData = await condb.findOne("spare", {
+            where: [
+                { key: "spare_is_use", value: true },
+                { key: "spare_id", operators: "=", value: spare_id }
+            ]
+        });
+
+        if (!findData) {
+            return response.error([{
+                errorcode: 400,
+                errorDis: "ไม่พบข้อมูล"
+            }])
+        }
+
+        const model = {
+            spare_is_use: false,
+
+            spare_updated_date: new Date(),
+            spare_updated_by: user_token.fup,
+        }
+
+        const callback = await condb.update("spare", model, spare_id)
+
+
+        return response.success({ spare_id: spare_id });
+    } catch (error) {
+        return response.error([{
+            errorcode: 400,
+            errorDis: error.message
+        }])
+    }
+}
+router.get('/deletesparepart/:spare_id', [authenticateToken], DeleteSparePart);
+
+/**
+* Save InOut Spare Part
+* @param {import("express").Request} req 
+* @param {import("express").Response} res 
+* @param {import("express").NextFunction} next 
+*/
+const SaveInOutSparePart = async (req, res, next) => {
+    const response = new Responsedata(req, res);
+    const error_list = [];
+    try {
+        // const orm = new ormPg();
+        const user_token = response.getPayloadData()
+        const authHeader = req.headers.authorization;
+        const token = authHeader && authHeader.split(" ")[1];
+        const loop_data = req.body;
+
+        if (!isArray(loop_data)) {
+            return response.error([{
+                errorcode: 400,
+                errorDis: "data is array"
+            }])
+        }
+
+
+        // check error validate
+        const data_model = {
+            edit_type_true: [],
+            edit_type_false: [],
+        }
+        for (const key in loop_data) {
+            if (Object.hasOwnProperty.call(loop_data, key)) {
+                const body = loop_data[key];
+                await CheckErrorSaveInOutSparePartFunction(body, data_model, Number(key), condb, error_list, token);
+            }
+        }
+        if (error_list.length > 0) {
+            return response.error(error_list)
+        }
+
+        // logic
+        const { edit_type_true, edit_type_false } = data_model;
+
+        // ในกรณีที่เป็น IN (edit_type = true);
+        for (const key in edit_type_true) {
+            if (Object.hasOwnProperty.call(edit_type_true, key)) {
+                const item = edit_type_true[key];
+                item.sla_id = uuidv4()
+
+                const findData = await condb.findOne("spare", {
+                    where: [
+                        { key: "spare_id", operators: "=", value: item.spare_id }
+                    ]
+                });
+
+                const spare_amount = Number(findData.spare_amount ?? 0) + Number(item.amount)
+                // console.log('IN spare_amount', spare_amount)
+
+                if (findData) {
+                    await condb.insert("spare_log_amount", {
+                        sla_id: item.sla_id,
+                        sla_so_id: item.spare_bill_id,
+                        sla_edit_type: item.edit_type,
+                        sla_amount: item.amount,
+
+                        sla_buy_price: item.buy_price,
+                        sla_sum_price: item.sum_price,
+                        sla_remark: item.remark,
+
+                        sla_create_date: new Date(),
+                        sla_update_date: new Date(),
+                        sla_create_by: user_token.fup,
+                        sla_update_by: user_token.fup,
+                    })
+
+                    await condb.update("spare", {
+                        spare_amount,
+                        spare_updated_date: new Date(),
+                        spare_updated_by: user_token.fup,
+                    }, item.spare_id)
+                } else {
+                    return response.error([{
+                        errorcode: 400,
+                        errorDis: "ไม่พบข้อมูล spare id = " + item.spare_id
+                    }])
+                }
+            }
+        }
+
+        // ในกรณีที่เป็น OUT (edit_type = false);
+
+        for (const key in edit_type_false) {
+            if (Object.hasOwnProperty.call(edit_type_false, key)) {
+                const item = edit_type_false[key];
+                item.sla_id = uuidv4()
+
+
+                const findData = await condb.findOne("spare", {
+                    where: [
+                        { key: "spare_id", operators: "=", value: item.spare_id }
+                    ]
+                });
+
+                const spare_amount = Number(findData.spare_amount ?? 0) - Number(item.amount)
+
+                // console.log('OUT spare_amount', spare_amount)
+
+                if (findData) {
+                    await condb.insert("spare_log_amount", {
+                        sla_id: item.sla_id,
+                        sla_vihecle_id: item.vehicle_id,
+                        sla_edit_type: item.edit_type,
+                        sla_amount: item.amount,
+
+                        sla_buy_price: item.buy_price,
+                        sla_sum_price: item.sum_price,
+                        sla_remark: item.remark,
+
+                        sla_create_date: new Date(),
+                        sla_update_date: new Date(),
+                        sla_create_by: user_token.fup,
+                        sla_update_by: user_token.fup,
+                    })
+
+                    await condb.update("spare", {
+                        spare_amount,
+                        spare_updated_date: new Date(),
+                        spare_updated_by: user_token.fup,
+                    }, item.spare_id)
+                } else {
+                    return response.error([{
+                        errorcode: 400,
+                        errorDis: "ไม่พบข้อมูล spare id = " + item.spare_id
+                    }])
+                }
+
+            }
+        }
+
+
+        return response.success({ ...data_model });
+    } catch (error) {
+        return response.error([{
+            errorcode: 400,
+            errorDis: error.message
+        }])
+    }
+}
+/**
+* @param {import("database-context-pg")} condb 
+*/
+async function CheckErrorSaveInOutSparePartFunction(body, data_model, index, condb, error_list, token) {
+    if (body.edit_type === true) {
+
+        if (!body.spare_id || body.spare_id === "") {
+
+            error_list.push({
+                errorIndex: index,
+                errorcode: 400,
+                errorDis: "Not found spare_id"
+            })
+        }
+
+        if (!body.spare_bill_id || body.spare_bill_id === "") {
+            error_list.push({
+                errorIndex: index,
+                errorcode: 400,
+                errorDis: "Not found spare_bill_id"
+            })
+        }
+
+        if (!(isNumber(body.amount)) || body.amount < 0) {
+            error_list.push({
+                errorIndex: index,
+                errorcode: 400,
+                errorDis: "amount > 0 and is Number"
+            })
+        }
+
+        if (!(!body.spare_id || body.spare_id === "") && !(!body.spare_bill_id || body.spare_bill_id === "")) {
+            const ChkSpareOrder = await condb.findOne("spare_order", {
+                where: [
+                    { key: "so_spare_id", value: body.spare_id },
+                    { key: "so_spare_bill_id", value: body.spare_bill_id },
+                    { key: "so_is_use", value: true },
+                ]
+            });
+
+            if (!ChkSpareOrder) {
+                error_list.push({
+                    errorIndex: index,
+                    errorcode: "spare_p6_1",
+                    errorDis: "ไม่พบรายการไหล่ ในใบรับสินค้า"
+                })
+            } else {
+                data_model.edit_type_true.push(body)
+            }
+        }
+    } else if (body.edit_type === false) {
+
+        if (!body.vehicle_id || body.vehicle_id === "") {
+            error_list.push({
+                errorIndex: index,
+                errorcode: 400,
+                errorDis: "Not found vehicle_id"
+            })
+        }
+
+        if (!body.spare_id || body.spare_id === "") {
+            error_list.push({
+                errorIndex: index,
+                errorcode: 400,
+                errorDis: "Not found spare_id"
+            })
+        } else {
+            const findData = await condb.findOne("spare", {
+                where: [
+                    { key: "spare_id", operators: "=", value: body.spare_id }
+                ]
+            });
+
+            if (Number(findData.spare_amount) <= 0 || !(isNumber(Number(findData.spare_amount)))) {
+                error_list.push({
+                    errorIndex: index,
+                    errorcode: 400,
+                    errorDis: "ไม่มีสินค้าในคลัง"
+                })
+            } else if (body.amount > Number(findData.spare_amount)) {
+                error_list.push({
+                    errorIndex: index,
+                    errorcode: 400,
+                    errorDis: "ลบสินค้าเกินจากคลัง"
+                })
+            }
+        }
+
+        if (!(!body.vehicle_id || body.vehicle_id === "")) {
+            const api_vehicle = new vehicleService();
+            const vehicle_callback = await api_vehicle.GetVehicle(token, body.vehicle_id);
+            if (!vehicle_callback) {
+                error_list.push({
+                    errorIndex: index,
+                    errorcode: "spare_p6_2",
+                    errorDis: "ไม่พบรถ"
+                })
+            } else {
+                data_model.edit_type_false.push(body)
+            }
+        }
+    } else {
+        error_list.push({
+            errorIndex: index,
+            errorcode: 400,
+            errorDis: "edit_type is bool"
+        })
+    }
+
+}
+router.post('/saveinoutsparepart', [authenticateToken], SaveInOutSparePart);
+
+/**
+* Delete Invoice
+* @param {import("express").Request} req 
+* @param {import("express").Response} res 
+* @param {import("express").NextFunction} next 
+*/
+const DeleteInvoice = async (req, res, next) => {
+    const response = new Responsedata(req, res);
+    try {
+        const user_token = response.getPayloadData()
+        const { sb_id } = req.params;
+
+        const findData = await condb.findOne("spare_bill", {
+            where: [
+                { key: "sb_is_use", value: true },
+                { key: "sb_id", operators: "=", value: sb_id }
+            ]
+        });
+
+        if (!findData) {
+            return response.error([{
+                errorcode: 400,
+                errorDis: "ไม่พบข้อมูล"
+            }])
+        }
+
+        const model = {
+            sb_is_use: false,
+
+            sb_updated_date: new Date(),
+            sb_updated_by: user_token.fup,
+        }
+
+        const callback = await condb.update("spare_bill", model, sb_id)
+
+
+        return response.success({ sb_id: sb_id });
+    } catch (error) {
+        return response.error([{
+            errorcode: 400,
+            errorDis: error.message
+        }])
+    }
+}
+router.get('/deleteinvoice/:sb_id', [authenticateToken], DeleteInvoice);
+
+
+/**
+* Filter Invoice
+* @param {import("express").Request} req 
+* @param {import("express").Response} res 
+* @param {import("express").NextFunction} next 
+*/
+const FilterInvoice = async (req, res, next) => {
+    const response = new Responsedata(req, res);
+    try {
+        const authHeader = req.headers.authorization;
+        const token = authHeader && authHeader.split(" ")[1];
+        const { company_id } = req.body;
+        const api_system = new systemService();
+        const api_vehicle = new vehicleService();
+        const _where = {
+            left_join: [
+                { table: "spare_status", on: "ss_id", id: "sb_spare_status_id" },
+                { table: "spare_status_vat", on: "ssv_id", id: "sb_spare_status_vat_id" },
+                { table: "spare_bill_type", on: "sbt_id", id: "sb_spare_bill_type_id" }
+            ],
+            where: [{ key: "sb_is_use", value: true }]
+        }
+
+        if (company_id != "" && company_id) {
+            _where.where.push({ key: "sb_company_id", value: company_id });
+        }
+
+        const callback = await condb.findAll("spare_bill", _where)
+
+
+        const data = {
+            sparebill_list: []
+        }
+
+        for (const key in callback) {
+            if (Object.hasOwnProperty.call(callback, key)) {
+                const item = callback[key];
+
+
+                const PromiseList = [
+                    api_system.GetMasterByid(token, "spare-supplier", item.sb_spare_supplier_id),
+                    api_vehicle.GetVehicle(token, item.sb_vehicle_id),
+                ];
+
+                const [
+                    Supplier,
+                    Vehicle,
+                ] = await Promise.all(PromiseList)
+
+
+                const _data = {
+                    sb_id: item.sb_id,
+                    sb_no: item.sb_no,
+
+                    sb_spare_supplier_id: item.sb_spare_supplier_id,
+                    sb_spare_supplier_name: Supplier?.ss_name,
+
+                    sb_repair_bill_id: item.sb_repair_bill_id,
+                    rb_no: null,
+
+                    sb_spare_status_vat_id: item.sb_spare_status_vat_id,
+                    sb_spare_status_vat_name: item.ssv_name ?? null,
+
+                    sb_spare_bill_type_id: item.sb_spare_bill_type_id,
+                    sb_spare_bill_type_name: item.sbt_name,
+
+                    sb_set_payment_date: item.sb_set_payment_date,
+
+                    sb_vehicle_id: item.sb_vehicle_id,
+                    sb_vehicle_name: Vehicle.vehicle_name ?? null,
+                    sb_vehicle_plate_number: Vehicle.vehicle_plate_number,
+                    sb_vi_path: Vehicle?.image?.vehicle?.vi_path ?? null,
+                    sb_vi_name: Vehicle?.image?.vehicle?.vi_name ?? null,
+
+                    sb_spare_status_id: item.sb_spare_status_id,
+                    sb_spare_status_name: item.ss_name ?? null,
+
+                    spare_order: [],
+                }
+
+                const find_spare_order = await condb.findAll("spare_order", {
+                    where: [
+                        { key: "so_is_use", value: true },
+                        { key: "so_spare_bill_id", value: item.sb_id },
+                    ]
+                })
+
+                for (const num in find_spare_order) {
+                    if (Object.hasOwnProperty.call(find_spare_order, num)) {
+                        const _value = find_spare_order[num];
+
+                        _data.spare_order.push({
+                            so_id: _value.so_id,
+                            so_spare_id: _value.so_spare_id,
+                            so_spare_no: _value.so_spare_no,
+                            so_spare_name: _value.so_spare_name,
+                            so_spare_sell_price: _value.so_spare_sell_price,
+                            so_amount: _value.so_amount,
+                            so_total_price: _value.so_total_price,
+                            so_is_receive: _value.so_is_receive,
+                            so_receive_date: _value.so_receive_date,
+                            so_remark: _value.so_remark,
+                        })
+
+                    }
+                }
+
+
+                data.sparebill_list.push(_data)
+            }
+        }
+
+        return response.success(data);
+    } catch (error) {
+        return response.error([{
+            errorcode: 400,
+            errorDis: error.message
+        }])
+    }
+}
+router.post('/filterinvoice', [authenticateToken], FilterInvoice);
+
+/**
+* Add Invoice
+* @param {import("express").Request} req 
+* @param {import("express").Response} res 
+* @param {import("express").NextFunction} next 
+*/
+const AddInvoice = async (req, res, next) => {
+    const response = new Responsedata(req, res);
+    try {
+        const user_token = response.getPayloadData()
+        const body = req.body;
+
+
+        /* Add spare_bill */
+        const id_spare_bill = uuidv4();
+
+        const year = moment().add(543, 'Y').format("YY");
+        const where_bill = await condb.clientQuery("SELECT * FROM public.spare_bill WHERE sb_no LIKE $1 || '%' ORDER BY sb_no desc;", [`PO-${year}`]);
+        const before_data = where_bill.rows.length > 0 ? where_bill.rows[0] : undefined;
+        const sb_no = generate_sb_no(before_data?.spare_no, year);
+
+        const check_sb_no = await condb.findOne("spare_bill", {
+            where: [
+                { key: "sb_no", value: sb_no }
+            ]
+        })
+
+        if (check_sb_no) {
+            return response.error([{
+                errorcode: 400,
+                errorDis: "sb_no will be the unique."
+            }])
+        }
+
+        const model_spare_bill = {
+            "sb_id": id_spare_bill,
+            "sb_no": sb_no,
+            "sb_spare_supplier_id": body.sb_spare_supplier_id,
+            "sb_repair_bill_id": body.sb_repair_bill_id,
+            "sb_price_before_vat": body.sb_price_before_vat,
+            "sb_spare_status_vat_id": body.sb_spare_status_vat_id,
+            "sb_vat": body.sb_vat,
+            "sb_total_price": body.sb_total_price,
+            "sb_spare_bill_type_id": body.sb_spare_bill_type_id,
+            "sb_set_payment_date": body.sb_set_payment_date ? new Date(body.sb_set_payment_date) : null,
+            "sb_payment_date": body.sb_payment_date ? new Date(body.sb_payment_date) : null,
+            "sb_notification_date": body.sb_notification_date,
+            "sb_document": body.sb_document,
+            "sb_vehicle_id": body.sb_vehicle_id,
+            "sb_spare_status_id": body.sb_spare_status_id,
+
+            "sb_is_use": true,
+            "sb_created_by": user_token.fup,
+            "sb_created_date": new Date(),
+            "sb_updated_by": user_token.fup,
+            "sb_updated_date": new Date(),
+        }
+
+        await condb.insert("spare_bill", model_spare_bill);
+
+        /* Add so_spare_order */
+        if (isArray(body.so_spare_order)) {
+            for (const key in body.so_spare_order) {
+                if (Object.hasOwnProperty.call(body.so_spare_order, key)) {
+                    const _data = body.so_spare_order[key];
+                    const id_spare_order = uuidv4();
+                    const model_spare_order = {
+                        "so_id": id_spare_order,
+                        "so_spare_id": _data.so_spare_id,
+                        "so_amount": _data.so_amount,
+                        "so_total_price": _data.so_total_price,
+                        "so_remark": _data.so_remark,
+                        "so_spare_bill_id": id_spare_bill,
+
+                        "so_is_use": true,
+                        "so_created_by": user_token.fup,
+                        "so_created_date": new Date(),
+                        "so_updated_by": user_token.fup,
+                        "so_updated_date": new Date(),
+                    }
+
+                    await condb.insert("spare_order", model_spare_order);
+                }
+            }
+        }
+
+        return response.success({});
+    } catch (error) {
+        return response.error([{
+            errorcode: 400,
+            errorDis: error.message
+        }])
+    }
+}
+
+const generate_sb_no = (before_data, year) => {
+    if (before_data) {
+        const split = (before_data).split(`PO-${year}`);
+        return split.length > 1 ? `PO-${year}${padZero((Number(split[1]) + 1), 5)}` : `PO-${year}00001`;
+    } else {
+        return `PO-${year}00001`
+    }
+}
+router.post('/addinvoice', [authenticateToken], AddInvoice);
+
+/**
+* Get Invoice
+* @param {import("express").Request} req 
+* @param {import("express").Response} res 
+* @param {import("express").NextFunction} next 
+*/
+const GetInvoice = async (req, res, next) => {
+    const response = new Responsedata(req, res);
+    try {
+        const authHeader = req.headers.authorization;
+        const token = authHeader && authHeader.split(" ")[1];
+        const { sb_id } = req.params;
+
+        const api_system = new systemService();
+        const api_vehicle = new vehicleService();
+        const api_permission = new permissionService();
+
+        const callback = await condb.findAll("spare_bill", {
+            left_join: [
+                { table: "spare_status", on: "ss_id", id: "sb_spare_status_id" },
+                { table: "spare_status_vat", on: "ssv_id", id: "sb_spare_status_vat_id" },
+                { table: "spare_bill_type", on: "sbt_id", id: "sb_spare_bill_type_id" }
+            ],
+            where: [
+                { key: "sb_is_use", value: true },
+                { key: "sb_id", value: sb_id },
+            ]
+        })
+
+        const data = {
+            sparebill_list: []
+        }
+
+        for (const key in callback) {
+            if (Object.hasOwnProperty.call(callback, key)) {
+                const item = callback[key];
+
+
+                const PromiseList = [
+                    api_system.GetMasterByid(token, "spare-supplier", item.sb_spare_supplier_id),
+                    api_vehicle.GetVehicle(token, item.sb_vehicle_id),
+                    api_permission.GetUserbyId(token, item.sb_updated_by),
+                    api_permission.GetUserbyId(token, item.sb_receive_by)
+                ];
+
+                const [
+                    Supplier,
+                    Vehicle,
+                    UpdateBy,
+                    ReceiveBy,
+                ] = await Promise.all(PromiseList)
+
+
+                const _data = {
+                    sb_id: item.sb_id,
+                    sb_no: item.sb_no,
+
+                    sb_spare_supplier_id: item.sb_spare_supplier_id,
+                    sb_spare_supplier_name: Supplier?.ss_name,
+
+                    sb_repair_bill_id: item.sb_repair_bill_id,
+                    // sb_repair_bill_name: null,
+                    // rb_no: null,
+
+                    sb_price_before_vat: item.sb_price_before_vat,
+
+                    sb_spare_status_vat_id: item.sb_spare_status_vat_id,
+                    sb_spare_status_vat_name: item.ssv_name ?? null,
+
+                    sb_vat: item.sb_vat,
+                    sb_total_price: item.sb_vat,
+                    sb_created_by: item.sb_created_by,
+                    sb_created_date: item.sb_created_date,
+
+                    sb_spare_bill_type_id: item.sb_spare_bill_type_id,
+                    sb_spare_bill_type_name: item.sbt_name,
+
+                    sb_set_payment_date: item.sb_set_payment_date,
+                    sb_payment_date: item.sb_payment_date,
+
+                    sb_updated_date: item.sb_updated_date,
+                    sb_updated_by: item.sb_updated_by,
+                    sb_updated_by_name: isPlainObject(UpdateBy) ? UpdateBy?.iu_name + " " + UpdateBy?.iu_sirname : null,
+
+                    sb_is_recieve: item.sb_is_recieve,
+                    sb_recieve_no: item.sb_recieve_no,
+                    sb_receive_date: item.sb_receive_date,
+
+                    sb_receive_by: item.sb_receive_by,
+                    sb_receive_by_name: isPlainObject(ReceiveBy) ? ReceiveBy?.iu_name + " " + ReceiveBy?.iu_sirname : null,
+
+                    sb_remark: item.sb_remark,
+                    sb_path_picture: item.sb_path_picture,
+                    sb_notification_date: item.sb_notification_date,
+                    sb_document: item.sb_document,
+
+                    sb_vehicle_id: item.sb_vehicle_id,
+                    sb_vehicle_name: Vehicle.vehicle_name ?? null,
+                    sb_vehicle_plate_number: Vehicle.vehicle_plate_number,
+                    sb_vi_id: item.sb_vehicle_id,
+                    sb_vi_path: Vehicle?.image?.vehicle?.vi_path ?? null,
+                    sb_vi_name: Vehicle?.image?.vehicle?.vi_name ?? null,
+
+                    sb_spare_status_id: item.sb_spare_status_id,
+                    sb_spare_status_name: item.ss_name ?? null,
+
+                    spare_order: [],
+                }
+
+                const find_spare_order = await condb.findAll("spare_order", {
+                    where: [
+                        { key: "so_is_use", value: true },
+                        { key: "so_spare_bill_id", value: item.sb_id },
+                    ]
+                })
+
+                for (const num in find_spare_order) {
+                    if (Object.hasOwnProperty.call(find_spare_order, num)) {
+                        const _value = find_spare_order[num];
+
+                        _data.spare_order.push({
+                            so_id: _value.so_id,
+                            so_spare_id: _value.so_spare_id,
+                            so_spare_no: _value.so_spare_no,
+                            so_spare_name: _value.so_spare_name,
+                            so_spare_sell_price: _value.so_spare_sell_price,
+                            so_amount: _value.so_amount,
+                            so_total_price: _value.so_total_price,
+                            so_is_receive: _value.so_is_receive,
+                            so_receive_date: _value.so_receive_date,
+                            so_remark: _value.so_remark,
+                        })
+
+                    }
+                }
+
+
+                data.sparebill_list.push(_data)
+            }
+        }
+
+        return response.success(data);
+    } catch (error) {
+        return response.error([{
+            errorcode: 400,
+            errorDis: error.message
+        }])
+    }
+}
+router.get('/getinvoice/:sb_id', [authenticateToken], GetInvoice);
+
+/**
+* Update Invoice
+* @param {import("express").Request} req 
+* @param {import("express").Response} res 
+* @param {import("express").NextFunction} next 
+*/
+const UpdateInvoice = async (req, res, next) => {
+    const response = new Responsedata(req, res);
+    const error_list = [];
+    try {
+        const user_token = response.getPayloadData()
+        const body = req.body;
+
+        /** Check value update */
+        if (body.sb_id == "" || !body.sb_id) {
+            error_list.push({
+                errorcode: 400,
+                errorDis: "Not found sb_id"
+            })
+        }
+
+        if (!isArray(body.so_spare_order)) {
+            error_list.push({
+                errorcode: 400,
+                errorDis: "so_spare_order is array"
+            })
+        }
+
+        body.so_spare_order.forEach((item, index) => {
+            if (item.so_id == "" || !item.so_id) {
+                error_list.push({
+                    errorIndex: index,
+                    errorcode: 400,
+                    errorDis: "Not found so_id"
+                })
+            }
+        });
+
+        if (error_list.length > 0) {
+            return response.error(error_list)
+        }
+
+        /* update spare_bill */
+        const model_spare_bill = {
+            "sb_spare_supplier_id": body.sb_spare_supplier_id,
+            "sb_repair_bill_id": body.sb_repair_bill_id,
+            "sb_price_before_vat": body.sb_price_before_vat,
+            "sb_spare_status_vat_id": body.sb_spare_status_vat_id,
+            "sb_vat": body.sb_vat,
+            "sb_total_price": body.sb_total_price,
+            "sb_spare_bill_type_id": body.sb_spare_bill_type_id,
+            "sb_set_payment_date": body.sb_set_payment_date,
+            "sb_payment_date": body.sb_payment_date,
+
+            "sb_is_recieve": body.sb_is_recieve,
+            "sb_recieve_no": body.sb_recieve_no,
+            "sb_receive_date": body.sb_receive_date,
+            "sb_receive_by": body.sb_receive_by,
+            "sb_remark": body.sb_remark,
+            "sb_path_picture": body.sb_path_picture,
+
+            "sb_notification_date": body.sb_notification_date,
+            "sb_document": body.sb_document,
+            "sb_vehicle_id": body.sb_vehicle_id,
+            "sb_spare_status_id": body.sb_spare_status_id,
+
+            "sb_updated_by": user_token.fup,
+            "sb_updated_date": new Date(),
+        }
+
+        await condb.update("spare_bill", model_spare_bill, body.sb_id);
+
+        /* update spare_bill */
+        if (isArray(body.so_spare_order)) {
+            for (const key in body.so_spare_order) {
+                if (Object.hasOwnProperty.call(body.so_spare_order, key)) {
+                    const _data = body.so_spare_order[key];
+                    const id_spare_order = uuidv4();
+                    const model_spare_order = {
+                        "so_spare_id": _data.so_spare_id,
+                        "so_amount": _data.so_amount,
+                        "so_total_price": _data.so_total_price,
+                        "so_remark": _data.so_remark,
+                        "so_spare_bill_id": body.sb_id,
+                        "so_is_receive": _data.so_is_receive,
+                        "so_receive_date": _data.so_receive_date,
+
+                        "so_updated_by": user_token.fup,
+                        "so_updated_date": new Date(),
+                    }
+
+                    await condb.update("spare_order", model_spare_order, _data.so_id);
+                }
+            }
+        }
+
+        return response.success({});
+    } catch (error) {
+        return response.error([
+            ...error_list, {
+                errorcode: 400,
+                errorDis: error.message
+            }])
+    }
+}
+router.post('/updateinvoice', [authenticateToken], UpdateInvoice);
+
+/**
+* Filter Manage Spare
+* @param {import("express").Request} req 
+* @param {import("express").Response} res 
+* @param {import("express").NextFunction} next 
+*/
+const FilterManageSpare = async (req, res, next) => {
+    const response = new Responsedata(req, res);
+    try {
+        const { company_id } = req.body;
+        const model = {
+            left_join: [
+                { table: "spare", on: "spare_id", id: "sba_spare_id" },
+            ],
+            where: [{ key: "sba_is_use", value: true }]
+        }
+
+        if (company_id != "" && company_id) {
+            model.where.push({ key: "sba_company_id", value: company_id });
+        }
+
+        const callback = await condb.findAll("spare_balance_amount", model)
+
+
+        const data = {
+            managespare_list: []
+        }
+
+        for (const key in callback) {
+            if (Object.hasOwnProperty.call(callback, key)) {
+                const item = callback[key];
+
+                const _data = {
+                    sba_id: item.sba_id,
+                    sba_spare_id: item.sba_spare_id,
+                    sba_spare_no: item.spare_no,
+                    sba_spare_name: item.spare_name,
+                    sba_update_amount: item.sba_update_amount,
+                    sba_remark: item.sba_remark,
+                    sba_created_date: item.sba_created_date,
+                    sba_created_by: item.sba_created_by,
+                    sba_updated_date: item.sba_updated_date,
+                    sba_updated_by: item.sba_updated_by,
+                }
+
+                data.managespare_list.push(_data)
+            }
+        }
+
+        return response.success(data);
+    } catch (error) {
+        return response.error([{
+            errorcode: 400,
+            errorDis: error.message
+        }])
+    }
+}
+router.post('/filtermanagespare', [authenticateToken], FilterManageSpare);
+
+/**
+* Get Manage Spare
+* @param {import("express").Request} req 
+* @param {import("express").Response} res 
+* @param {import("express").NextFunction} next 
+*/
+const GetManageSpare = async (req, res, next) => {
+    const response = new Responsedata(req, res);
+    try {
+        const authHeader = req.headers.authorization;
+        const token = authHeader && authHeader.split(" ")[1];
+        const api_system = new systemService();
+        const { sba_id } = req.params;
+        const model = {
+            left_join: [
+                { table: "spare", on: "spare_id", id: "sba_spare_id" },
+            ],
+            where: [
+                { key: "sba_id", value: sba_id },
+                { key: "sba_is_use", value: true },
+            ]
+        }
+
+        const callback = await condb.findAll("spare_balance_amount", model)
+
+
+        const data = {
+            managespare_list: []
+        }
+
+        for (const key in callback) {
+            if (Object.hasOwnProperty.call(callback, key)) {
+                const item = callback[key];
+                const PromiseList = [
+                    api_system.GetMasterByid(token, "spare-supplier", item.sba_spare_supplier_id),
+                ];
+
+                const [
+                    Supplier,
+                ] = await Promise.all(PromiseList)
+                const _data = {
+                    sba_id: item.sba_id,
+                    sba_spare_id: item.sba_spare_id ?? null,
+                    sba_spare_no: item.spare_no ?? null,
+                    sba_spare_name: item.spare_name ?? null,
+
+                    sba_spare_sell_price: item.sba_spare_sell_price ?? null,
+                    sba_spare_amount: item.sba_spare_amount ?? null,
+
+                    sba_spare_supplier_id: item.sba_spare_supplier_id ?? null,
+                    sba_spare_supplier_name: Supplier?.ss_name ?? null,
+                    sba_update_amount: item.sba_update_amount ?? null,
+                    sba_remark: item.sba_remark ?? null,
+                }
+
+                data.managespare_list.push(_data)
+            }
+        }
+
+        return response.success(data);
+    } catch (error) {
+        return response.error([{
+            errorcode: 400,
+            errorDis: error.message
+        }])
+    }
+}
+router.get('/getmanagespare/:sba_id', [authenticateToken], GetManageSpare);
+
+/**
+* Add Manage Spare
+* @param {import("express").Request} req 
+* @param {import("express").Response} res 
+* @param {import("express").NextFunction} next 
+*/
+const AddManageSpare = async (req, res, next) => {
+    const response = new Responsedata(req, res);
+    try {
+        const user_token = response.getPayloadData()
+        const body = req.body;
+
+
+        /* Add spare_bill */
+        const spare_balance_amount_id = uuidv4();
+
+
+        const model_spare_balance_amount = {
+            "sba_id": spare_balance_amount_id,
+            "sba_spare_id": body.sba_spare_id,
+            "sba_update_amount": body.sba_update_amount,
+
+            "sba_is_use": true,
+            // "sba_created_by": user_token.fup,
+            "sba_created_date": new Date(),
+            "sba_updated_by": user_token.fup,
+            "sba_updated_date": new Date(),
+        }
+
+        await condb.insert("spare_balance_amount", model_spare_balance_amount);
+
+        return response.success({});
+    } catch (error) {
+        return response.error([{
+            errorcode: 400,
+            errorDis: error.message
+        }])
+    }
+}
+router.post('/addmanagespare', [authenticateToken], AddManageSpare);
+
+module.exports = router;

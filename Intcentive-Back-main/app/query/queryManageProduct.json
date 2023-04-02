@@ -1,0 +1,3 @@
+{
+    "searchLike": "SELECT * FROM product p left join public.category c on p.product_category_id = c.category_id where product_is_use = true and product_company_id = $1 and ($2::text is null or product_name LIKE '%' || $2 || '%') and ($3::text is null or p.product_category_id::text = $3::text) and c.category_is_use = true ORDER by p.product_update_date DESC"
+}

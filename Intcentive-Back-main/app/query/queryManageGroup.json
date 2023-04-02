@@ -1,0 +1,18 @@
+{
+    "filterManageGroup": "SELECT mg_id, mg_group_id, mg_group_name, mg_group_description, mg_is_use, mg_create_date, mg_update_date, mg_is_active FROM manage_group WHERE mg_is_use = true AND ($1::text is null or mg_group_name LIKE '%' || $1 || '%') ORDER by mg_is_active DESC, mg_group_name ASC;",
+    "get_user_Group": "SELECT gm_id, gm_emp_id, gm_manage_group_id, gm_is_use, gm_create_date, gm_update_date FROM group_member WHERE gm_manage_group_id = $1 AND gm_is_use = true;",
+    "get_employee_Group": "SELECT e.id, e.emp_name_th, e.emp_name_eng, e.e_mail, e.mobile, e.birthday, e.nickname, e.department_id, e.emp_no, e.start_work, e.end_work, e.work_year, e.work_month, e.work_day, e.citizen_id, e.period_time_id, e.salary, e.line_id, e.is_connect, e.company_id, e.oem_id, e.emp_position, e.user_pad_id, e.is_use, e.last_sync, e.update_date, e.create_date, e.employee_nation_id, e.account_number, e.account_name, d.dep_name FROM employee e left join department d on d.id = e.department_id WHERE e.id = $1 and e.company_id = $2 AND e.oem_id = $3 AND e.is_use = true;",
+    "getrManageGroup": "SELECT mg_id, mg_group_id, mg_group_name, mg_group_description, mg_is_use, mg_create_date, mg_update_date FROM manage_group WHERE mg_is_use = true AND mg_id = $1;",
+    "Usertabel": "SELECT e.id, e.emp_name_th, e.emp_name_eng, e.e_mail, e.mobile, e.birthday, e.nickname, e.department_id, e.emp_no, e.start_work, e.end_work, e.work_year, e.work_month, e.work_day, e.citizen_id, e.period_time_id, e.salary, line_id, e.is_connect, e.company_id, e.oem_id, e.emp_position, e.user_pad_id, e.is_use, e.last_sync, e.update_date, e.create_date, e.employee_nation_id, e.account_number, e.account_name, d.dep_name FROM employee e left join department d on d.id = e.department_id WHERE e.company_id = $1 AND e.oem_id = $2 AND e.is_use = true and d.is_use = true AND ($3::text is null or e.emp_name_th LIKE '%' || $3 || '%') and ($4::uuid is null or d.id = $4) and ($5::text is null or e.emp_position = $5);",
+    "chackuser": "SELECT gm_id, gm_emp_id, gm_manage_group_id, gm_is_use, gm_create_date, gm_update_date FROM group_member;",
+    "addManageGroup": "INSERT INTO manage_group(mg_id, mg_group_name, mg_group_description, mg_is_use, mg_create_date, mg_update_date, mg_is_active) VALUES ($1, $2, $3, $4, $5,$6, $7);",
+    "addgroupmember": "INSERT INTO group_member(gm_id, gm_emp_id, gm_manage_group_id, gm_is_use, gm_create_date, gm_update_date)VALUES ($1, $2, $3, $4, $5, $6);",
+    "chackManageGroup": "SELECT mg_id, mg_group_id, mg_group_name, mg_group_description, mg_is_use, mg_create_date, mg_update_date FROM manage_group WHERE mg_is_use = true AND mg_group_name =$1;",
+    "chackManageGroupNameById": "SELECT mg_id, mg_group_id, mg_group_name, mg_group_description, mg_is_use, mg_create_date, mg_update_date FROM manage_group WHERE mg_is_use = true AND mg_group_name =$1 and mg_id != $2;",
+    "chackGroup": "SELECT gm_id, gm_emp_id, gm_manage_group_id, gm_is_use, gm_create_date, gm_update_date FROM group_member WHERE gm_manage_group_id =$1 ;",
+    "updateManageGroup": "UPDATE manage_group SET  mg_group_name=$2, mg_group_description=$3, mg_update_date=$4 WHERE mg_id = $1;",
+    "delusergroup": "DELETE FROM group_member WHERE gm_id =$1 ;",
+    "departmentlist": "select d.id, d.dep_name from department d where d.is_use = true and d.company_id = $1 and d.oem_id = $2",
+    "positionlist": "select distinct e.emp_position from employee e where e.emp_position notnull and e.company_id = $1 AND e.oem_id = $2 AND e.is_use = true",
+    "findManageGroup": "SELECT * FROM public.manage_group WHERE mg_is_use = true AND mg_id = $1"
+}

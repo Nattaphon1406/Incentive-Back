@@ -1,0 +1,3 @@
+{
+    "add":"INSERT INTO log( id, date, activity) VALUES ($1, $2, $3)"
+}

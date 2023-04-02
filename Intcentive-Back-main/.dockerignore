@@ -1,0 +1,11 @@
+node_modules
+.gitignore
+yarn.lock
+README.md
+.dockerignore
+database
+.env.example
+build
+cicd
+docker
+dist

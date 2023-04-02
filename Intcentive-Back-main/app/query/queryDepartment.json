@@ -1,0 +1,5 @@
+{
+    "DepartmentList" : "SELECT d.id, d.dep_name, d.dep_detail, d.parent_id FROM department d where d.is_use = true AND d.company_id = $1 AND d.oem_id = $2",
+    "DepartmentLv1List": "SELECT d.id, d.dep_name, d.dep_detail, d.parent_id FROM department d where d.is_use = true AND d.company_id = $1 AND d.oem_id = $2 AND d.parent_id is NULL",
+    "DepartmentLv2List": "SELECT d.id, d.dep_name, d.dep_detail, d.parent_id FROM department d where d.is_use = true AND d.parent_id = any($1)"
+}

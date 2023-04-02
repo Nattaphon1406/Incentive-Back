@@ -1,0 +1,4 @@
+{
+    "searchLike": "select * from public.category c where c.category_is_use = true and c.category_company_id = $1 and ($2::text is null or c.category_name ::text LIKE '%' || $2 || '%') ORDER by c.category_is_active desc",
+    "getProductGroup": "select p.product_id, p.product_no, p.product_name from category c left join product p on p.product_category_id = c.category_id where c.category_is_use = true and p.product_is_use = true and c.category_id = $1"
+}

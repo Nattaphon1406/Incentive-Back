@@ -1,0 +1,9 @@
+{
+    "searchLike": "SELECT * FROM \"award_point\" where ap_is_use = true and ap_company_id = $1 and ($2::text is null or ap_point_id LIKE '%' || $2 || '%') and ($3::text is null or ap_point_name LIKE '%' || $3 || '%') and ap_point Between $4 and $5 ORDER by ap_is_active DESC, ap_point + 0 DESC ,ap_update_date DESC",
+    "GetAwardPointList": "SELECT a.ap_id, a.ap_point_id, a.ap_point_name FROM award_point a WHERE a.ap_is_use = true and a.ap_company_id = $1 and a.ap_oem_id = $2 and a.ap_is_active = true",
+    "DeleteDap": "DELETE FROM department_award_point WHERE dap_award_point_id = $1",
+    "checkAwardPointName": "select ap.ap_id from award_point ap where ap_is_use = true and ap.ap_point_name = $1 and ap.ap_company_id = $2",
+    "checkAwardPointID": "select ap.ap_id from award_point ap where ap_is_use = true and ap.ap_point_id = $1",
+    "checkAwardPointIdByID": "select ap.ap_id from award_point ap where ap_is_use = true and ap.ap_point_id = $1 and ap.ap_id != $2",
+    "checkAwardPointNameByID": "select ap.ap_id from award_point ap where ap_is_use = true and ap.ap_point_name = $1 and ap.ap_id != $2 and ap.ap_company_id = $3"
+}

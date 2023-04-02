@@ -1,0 +1,8 @@
+{
+    "searchLike": "SELECT * FROM thank_point where tp_is_use = true and tp_company_id = $1 and ($2::text is null or tp_point_id LIKE '%' || $2 || '%') and ($3::text is null or tp_point_name LIKE '%' || $3 || '%') and tp_point Between $4 and $5 ORDER by tp_is_active DESC, tp_point + 0 DESC, tp_update_date DESC",
+    "chackThankPointID": "select tp.tp_id from thank_point tp where tp_is_use = true and tp.tp_point_id = $1",
+    "chackThankPointName": "select tp.tp_id from thank_point tp where tp_is_use = true and tp.tp_point_name = $1 and tp.tp_company_id = $2",
+    "chackThankPoinIdByID": "select tp.tp_id from thank_point tp where tp_is_use = true and tp.tp_point_id = $1 and tp.tp_id != $2",
+    "chackThankPoinNameByID": "select tp.tp_id from thank_point tp where tp_is_use = true and tp.tp_point_name = $1 and tp.tp_id != $2 and tp.tp_company_id = $3",
+    "maxTpPoint": "select max(tp.tp_point) as max_point from thank_point tp where tp_is_use = true and tp_company_id = $1"
+}

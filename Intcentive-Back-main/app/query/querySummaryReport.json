@@ -1,0 +1,5 @@
+{
+    "getUserPoint": "select ep.ep_emp_id, ep.ep_point from employee_point ep where ep.ep_is_use = true",
+    "getUserDetail": "select e.id, e.emp_no, e.emp_name_th, e.e_mail, c.\"name\" as company_name, o.\"name\" as oem_name from employee e left join oem o on o.id = e.oem_id left join company c on c.id = e.company_id left join department d on d.id = e.department_id where e.id = $1 and e.is_use = true and o.is_use = true and o.is_active = true and c.is_use = true and d.is_use = true",
+    "getRedeemDetail": "select ol.ol_emp_id, p.product_name, p.product_point, ea.ea_address, concat(to_char(ol.ol_create_date, 'DD/MM/YYYY'), ' ', to_char(ol.ol_create_date, 'hh:mm'), ' น.') as create_date, concat(to_char(ol.ol_update_date , 'DD/MM/YYYY'), ' ', to_char(ol.ol_update_date, 'hh:mm'), ' น.') as update_date from order_list ol left join product p on p.product_id = ol.ol_product_id left join employee_address ea on ea.ea_emp_id = ol.ol_emp_id where ol.ol_is_use = true and ol.ol_company_id = $1 and ol.ol_oem_id = $2 and ol.ol_create_date between $3 and $4"
+}

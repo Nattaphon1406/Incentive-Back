@@ -1,0 +1,5 @@
+{
+    "searchLike": "select cb_id, cb.cb_budget_year, cast(cb.cb_budget_amount AS DECIMAL(18,2)), to_char(cb.cb_create_date, 'DD/MM/YYYY') as create_date from company_budget cb where cb.cb_is_use = true and cb.cb_company_id = $1 and cb.cb_budget_year = $2 ORDER by cb.cb_create_date DESC",
+    "getYear": "SELECT cb.cb_budget_year FROM company_budget cb where cb.cb_is_use = true and cb.cb_company_id = $1 group by cb.cb_budget_year order by cb.cb_budget_year desc",
+    "chackDel": "select gp.gp_id from give_point gp left join award_point ap on ap.ap_id = gp_award_point_id where ap.ap_company_id = $1 and to_char(gp.gp_update_date, 'YYYY' ) = $2"
+}

@@ -1,0 +1,18 @@
+{
+
+    "getDepartmentByCom":"SELECT id, dep_name, is_use, company_id, oem_id, update_date, update_by, parent_id, dep_detail FROM department WHERE is_use = true AND company_id = $1 AND ($2::uuid is null or id =  $2 )",
+    "getEmpListByDepartment":"SELECT a.id, a.emp_name_th, a.emp_name_eng, e_mail, a.mobile, a.birthday, a.nickname, a.department_id,b.dep_name as department_name, a.emp_no FROM employee a LEFT JOIN department b ON a.department_id = b.id WHERE a.is_use = true AND a.department_id = $1;",
+    "getAwardTransection":"SELECT gp_emp_id as emp_id FROM give_point WHERE gp_is_use = true AND gp_create_date BETWEEN $1 AND $2;",
+    "getThankTransection":"SELECT tph_emp_id as emp_id FROM thank_point_history WHERE tph_is_use = true AND tph_create_date BETWEEN $1 AND $2;",
+    "getSumRedeemPoint":"SELECT SUM(b.product_point) as point FROM order_list a LEFT JOIN product b ON a.ol_product_id = b.product_id WHERE a.ol_company_id = $1 AND a.ol_is_use = true",
+    "getAwardPointData":"SELECT ap_point_name as award_name,ap_point as point,gp_emp_id as emp_id FROM give_point a LEFT JOIN award_point b ON a.gp_award_point_id = b.ap_id WHERE gp_create_date BETWEEN $1 AND $2",
+    "getRedeemPointData":"SELECT product_name,ol_emp_id as emp_id FROM order_list a LEFT JOIN product b ON a.ol_product_id = b.product_id WHERE a.ol_create_date BETWEEN $1 AND $2",
+    "getThankPointData":"SELECT  tp_point_name as point_name, tph_emp_id as emp_id FROM thank_point_history a LEFT JOIN thank_point b ON a.tph_thank_point_id = b.tp_id WHERE a.tph_create_date BETWEEN $1 AND $2",
+    "getCategoryData":"SELECT category_name, ol_emp_id as emp_id FROM order_list a LEFT JOIN product b ON a.ol_product_id = b.product_id LEFT JOIN category c ON b.product_category_id = c.category_id WHERE a.ol_create_date BETWEEN $1 AND $2",
+    "getUserPointData":"SELECT ep_emp_id as emp_id, ep_point as point, ep_is_use, ep_create_date, ep_update_date FROM employee_point WHERE ep_is_use = true ",
+    "getEmpDetail":"SELECT a.id, a.emp_name_th, a.emp_name_eng, e_mail, a.mobile, a.birthday, a.nickname, a.department_id,b.dep_name as department_name, a.emp_no FROM employee a LEFT JOIN department b ON a.department_id = b.id WHERE a.is_use = true AND a.id = $1;",
+    "getTotalPoint":"SELECT ap_point as point , gp_emp_id as emp_id FROM give_point a LEFT JOIN award_point b ON a.gp_award_point_id = b.ap_id AND a.gp_create_date BETWEEN $1 AND $2",
+    "getComapnyBudgetPoint":"SELECT cb_id, cb_company_id, cb_budget_year, cb_budget_amount, cb_is_use, cb_create_date, cb_create_by, cb_update_date, cb_update_by FROM company_budget WHERE cb_company_id = $1 AND cb_budget_year = $2 AND cb_is_use = true;",
+    "getRedeemTransection":"SELECT a.ol_emp_id as emp_id,b.product_point as point FROM order_list a LEFT JOIN product b ON a.ol_product_id = b.product_id WHERE a.ol_create_date BETWEEN $1 AND $2 AND a.ol_is_use = true",
+    "getBudgetYearData":"SELECT cb_budget_year as year, SUM(cb_budget_amount) as budget FROM company_budget  WHERE cb_company_id = $1 AND cb_budget_year <= $2 AND cb_is_use = true  group by cb_budget_year ORDER BY cb_budget_year DESC LIMIT 10;"
+}
